@@ -23,7 +23,7 @@ SESSION_SECRET=a-long-random-secret
 NEXT_PUBLIC_SHOP_NAME=Ledgerline Mobiles
 ```
 
-The database schema is versioned in `database/schema.sql`. Demo records used for the initial live smoke test are in `database/seed.sql`.
+The database schema is versioned in `database/schema.sql`. Apply migrations in `database/migrations/` after the base schema.
 
 ## Production deployment
 

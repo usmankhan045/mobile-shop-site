@@ -40,15 +40,7 @@ type Phone = {
   sellerCnic?: string;
   customer?: string;
 };
-
-const initialPhones: Phone[] = [
-  { id: 1, model: "iPhone 15 Pro", brand: "Apple", imei: "356789104522130", purchasePrice: 214000, salePrice: 247000, purchasedAt: "2024-06-18", soldAt: "2024-06-20", status: "Sold", sellerName: "Saad Traders", customer: "Hamza R." },
-  { id: 2, model: "Galaxy S24 Ultra", brand: "Samsung", imei: "353918116098745", purchasePrice: 198500, purchasedAt: "2024-06-21", status: "In stock", sellerName: "Tech Link" },
-  { id: 3, model: "Pixel 8 Pro", brand: "Google", imei: "359225781340116", purchasePrice: 168000, salePrice: 186000, purchasedAt: "2024-06-15", soldAt: "2024-06-19", status: "Sold", sellerName: "City Mobiles", customer: "Areesha K." },
-  { id: 4, model: "iPhone 14", brand: "Apple", imei: "354447108381902", purchasePrice: 153000, purchasedAt: "2024-06-19", status: "In stock", sellerName: "Saad Traders" },
-  { id: 5, model: "OnePlus 12", brand: "OnePlus", imei: "861234056789012", purchasePrice: 142000, purchasedAt: "2024-06-17", status: "In stock", sellerName: "Tech Link" },
-  { id: 6, model: "Galaxy Z Flip5", brand: "Samsung", imei: "356481112209384", purchasePrice: 165000, salePrice: 182000, purchasedAt: "2024-06-12", soldAt: "2024-06-18", status: "Sold", sellerName: "Mobile Hub", customer: "Bilal S." },
-];
+type Admin = { name: string; username: string };
 
 const navItems = [
   { label: "Home", icon: LayoutDashboard },
@@ -93,6 +85,7 @@ export default function Home() {
   const [ledgerSummary, setLedgerSummary] = useState<{ sales: number; purchases: number; cost_of_goods: number; gross_profit: number; sales_count: number; purchases_count: number } | null>(null);
   const [monthSummary, setMonthSummary] = useState<{ sales: number; purchases: number; cost_of_goods: number; gross_profit: number; sales_count: number; purchases_count: number } | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
+  const [admin, setAdmin] = useState<Admin | null>(null);
 
   const filteredPhones = useMemo(() => {
     const needle = query.toLowerCase().trim();
@@ -131,6 +124,8 @@ export default function Home() {
   const viewInventory = useCallback(() => navigate("Inventory"), [navigate]);
   const viewLedger = useCallback(() => navigate("Ledger"), [navigate]);
   const viewReports = useCallback(() => navigate("Reports"), [navigate]);
+  const adminName = admin?.name || "Administrator";
+  const adminInitials = adminName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   const syncChannelRef = useRef<BroadcastChannel | null>(null);
   const notifyDataChanged = useCallback(() => syncChannelRef.current?.postMessage({ type: "data-changed" }), []);
 
@@ -183,6 +178,10 @@ export default function Home() {
       syncChannelRef.current = null;
     };
   }, [refreshData]);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(async (response) => response.ok ? response.json() : null).then((payload) => { if (payload?.admin) setAdmin({ name: String(payload.admin.name || "Administrator"), username: String(payload.admin.username || "") }); }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const syncView = () => setActive(viewFromLocation());
@@ -289,7 +288,7 @@ export default function Home() {
         </nav>
         <div className="sidebar-bottom">
           <button className={`nav-item ${active === "Settings" ? "active" : ""}`} onClick={() => navigate("Settings")}><Settings size={18} strokeWidth={1.8} /><span>Settings</span></button>
-          <div className="shop-card"><div className="avatar">AK</div><div><strong>Asad Khan</strong><span>Administrator</span></div><ChevronDown size={15} /></div>
+          <div className="shop-card"><div className="avatar">{adminInitials}</div><div><strong>{adminName}</strong><span>Administrator</span></div><ChevronDown size={15} /></div>
         </div>
       </aside>
 
@@ -300,13 +299,13 @@ export default function Home() {
           <div className="top-actions">
             <button className="icon-button" aria-label="Help"><CircleHelp size={18} /></button>
             <button className="icon-button notification" aria-label="Notifications"><Bell size={18} /><i /></button>
-            <div className="top-avatar">AK</div>
+            <div className="top-avatar">{adminInitials}</div>
           </div>
         </header>
 
         <div className="content">
           <div className="welcome-row">
-            <div><p className="eyebrow">{new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} <span className={`mode-pill ${liveMode ? "live" : "demo"}`}>{liveMode ? "LIVE" : "DEMO"}</span></p><h1>Good morning, Asad.</h1><p className="subtle">Here&apos;s your shop at a glance.</p></div>
+          <div><p className="eyebrow">{new Date().toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} <span className={`mode-pill ${liveMode ? "live" : "demo"}`}>{liveMode ? "LIVE" : "READY"}</span></p><h1>Good morning{admin?.name ? `, ${admin.name}` : ""}.</h1><p className="subtle">Here&apos;s your shop at a glance.</p></div>
           <div className="desktop-actions"><button className="button secondary" onClick={openScanner}><ScanLine size={17} /> Scan IMEI</button><button className="button primary" onClick={openPurchase}><Plus size={17} /> Add purchase</button></div>
           </div>
 
@@ -314,7 +313,7 @@ export default function Home() {
           {active === "Inventory" && <Inventory phones={filteredPhones} query={query} setQuery={setQuery} onScan={openScanner} onSelect={setSelectedPhone} />}
           {active === "Ledger" && <Ledger phones={phones} period={period} setPeriod={setPeriod} version={dataVersion} />}
           {active === "Reports" && <Reports phones={phones} version={dataVersion} />}
-          {active === "Settings" && <SettingsPanel />}
+          {active === "Settings" && <SettingsPanel admin={admin} />}
         </div>
       </section>
 
@@ -478,7 +477,7 @@ function Reports({ phones, version }: { phones: Phone[]; version: number }) {
 }
 
 function downloadInventoryCsv(phones: Phone[]) { const csv = ["model,brand,imei,status,purchase_price,sale_price,purchased_at,seller_name,seller_cnic,customer", ...phones.map((phone) => [phone.model, phone.brand, phone.imei, phone.status, phone.purchasePrice, phone.salePrice ?? "", phone.purchasedAt, phone.sellerName ?? "", phone.sellerCnic ?? "", phone.customer ?? ""].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = "inventory.csv"; link.click(); URL.revokeObjectURL(link.href); }
-function SettingsPanel() { return <><div className="page-heading"><div><span className="eyebrow">SETTINGS / SHOP PROFILE</span><h2>Keep things in order.</h2><p className="subtle">Manage your shop preferences and admin access.</p></div></div><div className="settings-grid"><div className="panel settings-card"><span className="eyebrow">SHOP PROFILE</span><label>Shop name<input defaultValue="Ledgerline Mobiles" /></label><label>Currency<select defaultValue="PKR"><option>PKR — Pakistani Rupee</option><option>USD — US Dollar</option></select></label><button className="button primary">Save changes</button></div><div className="panel settings-card"><span className="eyebrow">ADMIN ACCESS</span><div className="admin-row"><div className="avatar">AK</div><div><strong>Asad Khan</strong><span>Administrator · Primary account</span></div></div><button className="button secondary">Change password</button></div></div></>; }
+function SettingsPanel({ admin }: { admin: Admin | null }) { const name = admin?.name || "Administrator"; const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); return <><div className="page-heading"><div><span className="eyebrow">SETTINGS / SHOP PROFILE</span><h2>Keep things in order.</h2><p className="subtle">Manage your shop preferences and admin access.</p></div></div><div className="settings-grid"><div className="panel settings-card"><span className="eyebrow">SHOP PROFILE</span><label>Shop name<input defaultValue="Ledgerline Mobiles" /></label><label>Currency<select defaultValue="PKR"><option>PKR — Pakistani Rupee</option><option>USD — US Dollar</option></select></label><button className="button primary">Save changes</button></div><div className="panel settings-card"><span className="eyebrow">ADMIN ACCESS</span><div className="admin-row"><div className="avatar">{initials}</div><div><strong>{name}</strong><span>Administrator · {admin?.username || "Primary account"}</span></div></div><button className="button secondary">Change password</button></div></div></>; }
 
 function ModalShell({ title, eyebrow, children, onClose }: { title: string; eyebrow: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="modal"><div className="modal-header"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></div>{children}</div></div>; }
 function ScannerModal({ onClose, onScan }: { onClose: () => void; onScan: (value: string) => void }) {

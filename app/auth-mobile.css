@@ -1,0 +1,9 @@
+@media (max-width: 560px) {
+  .auth-shell { justify-content: flex-start; padding: 34px 16px 24px; }
+  .auth-brand { margin-bottom: 22px; }
+  .auth-card { padding: 24px 20px; border-radius: 12px; }
+  .auth-card h1 { font-size: 23px; }
+  .auth-card input { height: 46px; font-size: 16px; }
+  .auth-card .button { min-height: 46px; }
+  .auth-footer { margin-top: 16px; text-align: center; }
+}

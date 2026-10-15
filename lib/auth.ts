@@ -27,7 +27,7 @@ export async function getCurrentAdmin() {
   if (!process.env.DATABASE_URL) return null;
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
-  const rows = await getDb()`SELECT a.id, a.name, a.email FROM sessions s JOIN admins a ON a.id = s.admin_id WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now() LIMIT 1`;
+  const rows = await getDb()`SELECT a.id, a.name, a.username FROM sessions s JOIN admins a ON a.id = s.admin_id WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now() LIMIT 1`;
   return rows[0] ?? null;
 }
 
