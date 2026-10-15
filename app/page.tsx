@@ -40,7 +40,7 @@ type Phone = {
   sellerCnic?: string;
   customer?: string;
 };
-type Admin = { name: string; username: string };
+type Admin = { id?: string; name: string; username: string; email?: string; emailVerifiedAt?: string | null };
 
 const navItems = [
   { label: "Home", icon: LayoutDashboard },
@@ -180,7 +180,7 @@ export default function Home() {
   }, [refreshData]);
 
   useEffect(() => {
-    fetch("/api/auth/me").then(async (response) => response.ok ? response.json() : null).then((payload) => { if (payload?.admin) setAdmin({ name: String(payload.admin.name || "Administrator"), username: String(payload.admin.username || "") }); }).catch(() => undefined);
+    fetch("/api/auth/me").then(async (response) => response.ok ? response.json() : null).then((payload) => { if (payload?.admin) setAdmin({ id: String(payload.admin.id || ""), name: String(payload.admin.name || "Administrator"), username: String(payload.admin.username || ""), email: payload.admin.email ? String(payload.admin.email) : undefined, emailVerifiedAt: payload.admin.email_verified_at ? String(payload.admin.email_verified_at) : null }); }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -313,7 +313,7 @@ export default function Home() {
           {active === "Inventory" && <Inventory phones={filteredPhones} query={query} setQuery={setQuery} onScan={openScanner} onSelect={setSelectedPhone} />}
           {active === "Ledger" && <Ledger phones={phones} period={period} setPeriod={setPeriod} version={dataVersion} />}
           {active === "Reports" && <Reports phones={phones} version={dataVersion} />}
-          {active === "Settings" && <SettingsPanel admin={admin} />}
+          {active === "Settings" && <SettingsPanel admin={admin} onAdminUpdated={setAdmin} />}
         </div>
       </section>
 
@@ -477,7 +477,23 @@ function Reports({ phones, version }: { phones: Phone[]; version: number }) {
 }
 
 function downloadInventoryCsv(phones: Phone[]) { const csv = ["model,brand,imei,status,purchase_price,sale_price,purchased_at,seller_name,seller_cnic,customer", ...phones.map((phone) => [phone.model, phone.brand, phone.imei, phone.status, phone.purchasePrice, phone.salePrice ?? "", phone.purchasedAt, phone.sellerName ?? "", phone.sellerCnic ?? "", phone.customer ?? ""].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = "inventory.csv"; link.click(); URL.revokeObjectURL(link.href); }
-function SettingsPanel({ admin }: { admin: Admin | null }) { const name = admin?.name || "Administrator"; const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); return <><div className="page-heading"><div><span className="eyebrow">SETTINGS / SHOP PROFILE</span><h2>Keep things in order.</h2><p className="subtle">Manage your shop preferences and admin access.</p></div></div><div className="settings-grid"><div className="panel settings-card"><span className="eyebrow">SHOP PROFILE</span><label>Shop name<input defaultValue="Ledgerline Mobiles" /></label><label>Currency<select defaultValue="PKR"><option>PKR — Pakistani Rupee</option><option>USD — US Dollar</option></select></label><button className="button primary">Save changes</button></div><div className="panel settings-card"><span className="eyebrow">ADMIN ACCESS</span><div className="admin-row"><div className="avatar">{initials}</div><div><strong>{name}</strong><span>Administrator · {admin?.username || "Primary account"}</span></div></div><button className="button secondary">Change password</button></div></div></>; }
+function SettingsPanel({ admin, onAdminUpdated }: { admin: Admin | null; onAdminUpdated: (admin: Admin) => void }) {
+  const name = admin?.name || "Administrator";
+  const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const [email, setEmail] = useState(admin?.email || "");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function updateRecoveryEmail() {
+    setLoading(true); setMessage(""); setError("");
+    const response = await fetch("/api/auth/recovery-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+    const payload = await response.json().catch(() => ({})); setLoading(false);
+    if (!response.ok) { setError(payload.error || "Unable to update recovery email."); return; }
+    setPassword(""); setMessage(payload.message || "Verification link sent."); onAdminUpdated({ ...admin, name, username: admin?.username || "", email: payload.email, emailVerifiedAt: null });
+  }
+  return <><div className="page-heading"><div><span className="eyebrow">SETTINGS / SHOP PROFILE</span><h2>Keep things in order.</h2><p className="subtle">Manage your shop preferences and protect admin access.</p></div></div><div className="settings-grid"><div className="panel settings-card"><span className="eyebrow">SHOP PROFILE</span><label>Shop name<input defaultValue="Ledgerline Mobiles" /></label><label>Currency<select defaultValue="PKR"><option>PKR — Pakistani Rupee</option><option>USD — US Dollar</option></select></label><button className="button primary">Save changes</button></div><div className="panel settings-card"><span className="eyebrow">RECOVERY EMAIL</span><div className="admin-row"><div className="avatar">{initials}</div><div><strong>{name}</strong><span>Administrator · {admin?.username || "Primary account"}</span></div></div><p className="subtle settings-help">{admin?.emailVerifiedAt ? `Verified recovery email: ${admin.email}` : "Add an email you control. A verification link is required before it can reset your password."}</p><label>Recovery email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="owner@example.com" /></label><label>Current password<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Confirm your identity" /></label>{error && <p className="form-error">{error}</p>}{message && <p className="form-success">{message}</p>}<button className="button secondary" onClick={updateRecoveryEmail} disabled={loading}>{loading ? "Sending verification..." : "Verify recovery email"}</button></div></div></>;
+}
 
 function ModalShell({ title, eyebrow, children, onClose }: { title: string; eyebrow: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="modal"><div className="modal-header"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></div>{children}</div></div>; }
 function ScannerModal({ onClose, onScan }: { onClose: () => void; onScan: (value: string) => void }) {

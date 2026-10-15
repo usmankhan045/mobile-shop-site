@@ -1,0 +1,11 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
+
+export default function ResetPasswordPage() {
+  const [token, setToken] = useState(""); const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); const [error, setError] = useState(""); const [done, setDone] = useState(false); const [loading, setLoading] = useState(false);
+  useEffect(() => setToken(new URLSearchParams(window.location.search).get("token") || ""), []);
+  async function submit(event: FormEvent) { event.preventDefault(); setError(""); if (password !== confirm) { setError("Passwords do not match."); return; } setLoading(true); const response = await fetch("/api/auth/reset-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) }); const payload = await response.json().catch(() => ({})); setLoading(false); if (!response.ok) { setError(payload.error || "Unable to reset the password."); return; } setDone(true); }
+  return <main className="auth-shell"><div className="auth-brand"><div className="brand-mark">L</div><div><strong>ledgerline</strong><span>shop operations</span></div></div><section className="auth-card"><div className="auth-icon"><LockKeyhole size={20} /></div><span className="eyebrow">ACCOUNT RECOVERY</span><h1>{done ? "Password updated." : "Choose a new password."}</h1>{done ? <><p className="subtle">Your old sessions were signed out. Sign in with the new password.</p><a className="button primary full-button" href="/login">Return to sign in</a></> : <form onSubmit={submit}><label>New password<input autoFocus type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required /></label><label>Confirm password<input type="password" autoComplete="new-password" minLength={8} value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder="Repeat your password" required /></label>{error && <p className="form-error">{error}</p>}<button className="button primary full-button" disabled={loading}>{loading ? "Updating password..." : <>Update password <ArrowRight size={16} /></>}</button></form>}</section></main>;
+}

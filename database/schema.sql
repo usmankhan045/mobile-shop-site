@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS admins (
   name TEXT NOT NULL,
   username TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL UNIQUE,
+  email_verified_at TIMESTAMPTZ,
   password_hash TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -87,12 +88,23 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  purpose TEXT NOT NULL CHECK (purpose IN ('email_verification', 'password_reset')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS phones_status_idx ON phones(status);
 CREATE INDEX IF NOT EXISTS phones_brand_model_idx ON phones(brand, model);
 CREATE INDEX IF NOT EXISTS phones_purchased_at_idx ON phones(purchased_at DESC);
 CREATE INDEX IF NOT EXISTS phone_events_date_idx ON phone_events(event_date DESC);
 CREATE INDEX IF NOT EXISTS phone_events_phone_idx ON phone_events(phone_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS login_attempts_lookup_idx ON login_attempts(email, ip_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS auth_tokens_lookup_idx ON auth_tokens(token_hash, purpose, expires_at);
 
 DROP VIEW IF EXISTS phone_history;
 
