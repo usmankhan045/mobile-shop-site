@@ -53,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     ), updated AS (
       UPDATE phones
       SET sale_price = ${salePrice}, sold_at = ${saleDate}, status = 'Sold', customer_id = (SELECT id FROM new_customer), updated_at = now()
-      WHERE id = ${id} AND status = 'In stock'
+      WHERE id = ${id} AND status IN ('In stock', 'Returned')
       RETURNING *
     ), event AS (
       INSERT INTO phone_events (phone_id, event_type, amount, event_date, metadata, created_by)
